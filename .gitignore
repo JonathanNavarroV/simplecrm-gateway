@@ -1,0 +1,95 @@
+## Compilación
+bin/
+obj/
+out/
+[Bb]uild/
+[Ll]og/
+
+## Archivos de usuario (IDE)
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.userprefs
+
+## Visual Studio Code
+.vscode/
+.history/
+*.code-workspace
+
+## Rider / JetBrains
+.idea/
+
+## Visual Studio
+.vs/
+
+## Archivos temporales
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+*.cache
+
+## Paquetes NuGet
+*.nupkg
+*.snupkg
+*.nuspec
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Evitar check-in de paquetes descargados
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+# permitir guardar archivos de build de NuGet
+
+## Archivos generados
+*.dll
+*.exe
+*.app
+*.appx
+*.so
+*.dylib
+*.a
+*.lib
+*.pdb
+*.mdb
+
+## Cobertura y análisis
+coverage/
+*.coverage
+*.coveragexml
+TestResult.xml
+TestResults/
+*.trx
+*.xunit.xml
+
+## Configuración de usuario
+*.dotCover
+*.user
+*.rsuser
+
+## Docker
+docker-compose.override.yml
+
+## Sistema operativo
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+## Secretos locales (asegúrate de no commitear tus credenciales)
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
