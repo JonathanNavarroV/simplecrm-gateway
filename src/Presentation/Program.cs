@@ -1,6 +1,11 @@
 // Se crea el "builder" de la aplicación: lee args, configura loggin, config, etc.
 var builder = WebApplication.CreateBuilder(args);
 
+// Registra el YARP y carga la sección "ReverseProxy" del appsettings
+builder
+    .Services.AddReverseProxy()
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+
 // Se registra CORS en el contenedor de servicios
 builder.Services.AddCors(options =>
 {
@@ -39,6 +44,9 @@ app.MapGet(
             }
         )
 );
+
+// Se mapea el ReverseProxy
+app.MapReverseProxy();
 
 // Arranca el servidor web (Kestrel) y queda escuchando peticiones HTTP.
 app.Run();
