@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+
 // Se crea el "builder" de la aplicación: lee args, configura loggin, config, etc.
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,14 +25,47 @@ builder.Services.AddCors(options =>
     );
 });
 
+// Auth: Entra ID
+// Se registra esquema Bearer (JWT) para validar las peticiones
+builder
+    .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme) // Esquema "Bearer"
+    .AddJwtBearer(options =>
+    {
+        // URL del "Authority" = endpoint de Entra ID para validar tokens
+        options.Authority = builder.Configuration["Authentication:EntraId:Authority"];
+
+        // Parámetros de validación del token
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            // Validar que el "issuer" del token sea uno de los permitidos
+            ValidateIssuer = true,
+            ValidIssuers = builder
+                .Configuration.GetSection("Authentication:EntraId:ValidIssuers")
+                .Get<string[]>(),
+
+            // Validar que el "audience" sea válido
+            ValidateAudience = true,
+            ValidAudiences = builder
+                .Configuration.GetSection("Authentication:EntraId:ValidAudiences")
+                .Get<string[]>(),
+
+            // Validar que el token no esté expirado
+            ValidateLifetime = true,
+        };
+    });
+
+// Se registra el servicio de autorización (roles, políticas, etc...)
+builder.Services.AddAuthorization();
+
 // Contruye la aplicación ASP.NET Core con lo registrado arriba.
 var app = builder.Build();
 
-// Se actuva la política CORS en el pipeline
+// Se activa la política CORS en el pipeline
 app.UseCors("Default");
 
-// Endpoint raíz simple para ver que el host responde.
-app.MapGet("/", () => Results.Text("SimpleCRM Gateway (con CORS): Ok", "text/plain"));
+// Se activa la autenticación y luego la autorización
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Endpoint de salud SIN autenticación
 app.MapGet(
@@ -46,7 +82,7 @@ app.MapGet(
 );
 
 // Se mapea el ReverseProxy
-app.MapReverseProxy();
+app.MapReverseProxy().RequireAuthorization();
 
 // Arranca el servidor web (Kestrel) y queda escuchando peticiones HTTP.
 app.Run();
