@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
-// Se crea el "builder" de la aplicación: lee args, configura loggin, config, etc.
+// Se crea el "builder" de la aplicación: lee args, configura logging, config, etc.
 var builder = WebApplication.CreateBuilder(args);
 
 // Registra el YARP y carga la sección "ReverseProxy" del appsettings
+// Nota: YARP reenvía headers por defecto; para añadir o transformar headers
+// usar la sección "Transforms" en la configuración o configurar ProxyRequestOptions.
 builder
     .Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
@@ -57,7 +59,7 @@ builder
 // Se registra el servicio de autorización (roles, políticas, etc...)
 builder.Services.AddAuthorization();
 
-// Contruye la aplicación ASP.NET Core con lo registrado arriba.
+// Construye la aplicación ASP.NET Core con lo registrado arriba.
 var app = builder.Build();
 
 // Se activa la política CORS en el pipeline
@@ -82,6 +84,8 @@ app.MapGet(
 );
 
 // Se mapea el ReverseProxy
+// Protege todas las rutas proxied: requiere token Bearer válido.
+// Para pruebas locales sin autenticación temporal, cambiar a `app.MapReverseProxy()`.
 app.MapReverseProxy().RequireAuthorization();
 
 // Arranca el servidor web (Kestrel) y queda escuchando peticiones HTTP.
