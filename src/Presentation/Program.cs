@@ -59,11 +59,79 @@ builder
 // Se registra el servicio de autorización (roles, políticas, etc...)
 builder.Services.AddAuthorization();
 
+// Registrar HttpClient para llamar al AuthService desde el gateway
+builder.Services.AddHttpClient("authclient", client =>
+{
+    // Intentamos leer la dirección del authservice desde la configuración de ReverseProxy
+    var authAddr = builder.Configuration["ReverseProxy:Clusters:AuthService:Destinations:AuthRoute1:Address"] ?? "http://localhost:5001";
+    client.BaseAddress = new Uri(authAddr);
+});
+
 // Construye la aplicación ASP.NET Core con lo registrado arriba.
 var app = builder.Build();
 
 // Se activa la política CORS en el pipeline
 app.UseCors("Default");
+
+// Middleware: intercambia token externo por interno llamando a AuthService
+// Ejecutar ANTES de la autenticación para permitir que el gateway reemplace
+// el header `Authorization` por el token interno antes de que ASP.NET valide el token.
+app.Use(async (ctx, next) =>
+    {
+        var path = ctx.Request.Path.Value ?? string.Empty;
+        // Evitar intercambio únicamente para la ruta de intercambio del propio AuthService
+        // y el healthcheck; permitir intercambio para otras rutas bajo /api/auth (p.ej. /api/auth/users)
+        if (path.StartsWith("/api/auth/exchange", StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith("/api/auth/healthz", StringComparison.OrdinalIgnoreCase))
+        {
+            await next();
+            return;
+        }
+
+        var authHeader = ctx.Request.Headers["Authorization"].ToString();
+        if (string.IsNullOrEmpty(authHeader))
+        {
+            await next();
+            return;
+        }
+
+        // Llamar al AuthService para obtener token interno
+        try
+        {
+            var httpFactory = app.Services.GetRequiredService<IHttpClientFactory>();
+            var client = httpFactory.CreateClient("authclient");
+            // Llamada directa al AuthService: la ruta en el servicio es "/exchange" (sin prefijo "/api/auth").
+            var req = new HttpRequestMessage(HttpMethod.Post, "/exchange");
+            req.Headers.Add("Authorization", authHeader);
+
+            var resp = await client.SendAsync(req);
+            if (!resp.IsSuccessStatusCode)
+            {
+                ctx.Response.StatusCode = (int)resp.StatusCode;
+                await ctx.Response.WriteAsync("Token exchange failed");
+                return;
+            }
+
+            // Prefer Authorization header in response from AuthService
+            if (resp.Headers.TryGetValues("Authorization", out var authValues))
+            {
+                var headerVal = authValues.FirstOrDefault();
+                if (!string.IsNullOrEmpty(headerVal))
+                {
+                    // Replace the incoming Authorization header with the internal token
+                    ctx.Request.Headers["Authorization"] = headerVal;
+                }
+            }
+        }
+        catch
+        {
+            ctx.Response.StatusCode = StatusCodes.Status502BadGateway;
+            await ctx.Response.WriteAsync("Error contacting auth service");
+            return;
+        }
+
+        await next();
+    });
 
 // Se activa la autenticación y luego la autorización
 app.UseAuthentication();
