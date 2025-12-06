@@ -30,7 +30,7 @@ builder.Services.AddCors(options =>
 // Auth: Entra ID
 // Se registra esquema Bearer (JWT) para validar las peticiones
 builder
-    .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme) // Default = EntraId Bearer
+    .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme) // Predeterminado = EntraId Bearer
     .AddJwtBearer(options =>
     {
         // URL del "Authority" = endpoint de Entra ID para validar tokens
@@ -127,7 +127,7 @@ app.Use(async (ctx, next) =>
                 return;
             }
 
-            // Prefer Authorization header in response from AuthService
+            // Preferir el header Authorization en la respuesta desde AuthService
             if (resp.Headers.TryGetValues("Authorization", out var authValues))
             {
                 var headerVal = authValues.FirstOrDefault();
