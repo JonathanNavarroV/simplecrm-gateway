@@ -30,34 +30,49 @@ builder.Services.AddCors(options =>
 // Auth: Entra ID
 // Se registra esquema Bearer (JWT) para validar las peticiones
 builder
-    .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme) // Esquema "Bearer"
+    .Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme) // Default = EntraId Bearer
     .AddJwtBearer(options =>
     {
         // URL del "Authority" = endpoint de Entra ID para validar tokens
         options.Authority = builder.Configuration["Authentication:EntraId:Authority"];
 
-        // Parámetros de validación del token
+        // Parámetros de validación del token (Entra ID)
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            // Validar que el "issuer" del token sea uno de los permitidos
             ValidateIssuer = true,
-            ValidIssuers = builder
-                .Configuration.GetSection("Authentication:EntraId:ValidIssuers")
-                .Get<string[]>(),
-
-            // Validar que el "audience" sea válido
+            ValidIssuers = builder.Configuration.GetSection("Authentication:EntraId:ValidIssuers").Get<string[]>(),
             ValidateAudience = true,
-            ValidAudiences = builder
-                .Configuration.GetSection("Authentication:EntraId:ValidAudiences")
-                .Get<string[]>(),
-
-            // Validar que el token no esté expirado
+            ValidAudiences = builder.Configuration.GetSection("Authentication:EntraId:ValidAudiences").Get<string[]>(),
             ValidateLifetime = true,
         };
+    })
+    // Esquema adicional para tokens internos emitidos por AuthService (desarrollo)
+    .AddJwtBearer("Internal", options =>
+    {
+        var keyBase64 = builder.Configuration["Jwt:SigningKeyBase64"];
+        if (!string.IsNullOrEmpty(keyBase64))
+        {
+            var key = new SymmetricSecurityKey(Convert.FromBase64String(keyBase64));
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = builder.Configuration["Jwt:Issuer"],
+                ValidateAudience = true,
+                ValidAudience = builder.Configuration["Jwt:Audience"],
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = key,
+                ValidateLifetime = true
+            };
+        }
     });
 
-// Se registra el servicio de autorización (roles, políticas, etc...)
-builder.Services.AddAuthorization();
+// Autorizar con cualquiera de los dos esquemas (EntraId o Internal)
+builder.Services.AddAuthorization(options =>
+{
+    options.DefaultPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder(new[] { JwtBearerDefaults.AuthenticationScheme, "Internal" })
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 // Registrar HttpClient para llamar al AuthService desde el gateway
 builder.Services.AddHttpClient("authclient", client =>
