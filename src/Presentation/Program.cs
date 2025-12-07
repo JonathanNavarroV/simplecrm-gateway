@@ -115,8 +115,8 @@ app.Use(async (ctx, next) =>
         {
             var httpFactory = app.Services.GetRequiredService<IHttpClientFactory>();
             var client = httpFactory.CreateClient("authclient");
-            // Llamada directa al AuthService: la ruta en el servicio es "/exchange" (sin prefijo "/api/auth").
-            var req = new HttpRequestMessage(HttpMethod.Post, "/exchange");
+            // Llamada directa al AuthService: la ruta correcta en el AuthService es "/auth/exchange".
+            var req = new HttpRequestMessage(HttpMethod.Post, "/auth/exchange");
             req.Headers.Add("Authorization", authHeader);
 
             var resp = await client.SendAsync(req);
